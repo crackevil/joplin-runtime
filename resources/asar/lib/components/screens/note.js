@@ -29,7 +29,7 @@ const { dialogs } = require('lib/dialogs.js');
 const DialogBox = require('react-native-dialogbox').default;
 const { NoteBodyViewer } = require('lib/components/note-body-viewer.js');
 const { DocumentPicker, DocumentPickerUtil } = require('react-native-document-picker');
-const ImageResizer = require('react-native-image-resizer').default;
+
 const shared = require('lib/components/shared/note-screen-shared.js');
 const ImagePicker = require('react-native-image-picker');
 const { SelectDateTimeDialog } = require('lib/components/select-date-time-dialog.js');
@@ -399,35 +399,6 @@ class NoteScreenComponent extends BaseScreenComponent {
 		});
 	}
 
-	async resizeImage(localFilePath, targetPath, mimeType) {
-		const maxSize = Resource.IMAGE_MAX_DIMENSION;
-
-		let dimensions = await this.imageDimensions(localFilePath);
-
-		reg.logger().info('Original dimensions ', dimensions);
-		if (dimensions.width > maxSize || dimensions.height > maxSize) {
-			dimensions.width = maxSize;
-			dimensions.height = maxSize;
-		}
-		reg.logger().info('New dimensions ', dimensions);
-
-		const format = mimeType == 'image/png' ? 'PNG' : 'JPEG';
-		reg.logger().info(`Resizing image ${localFilePath}`);
-		const resizedImage = await ImageResizer.createResizedImage(localFilePath, dimensions.width, dimensions.height, format, 85); // , 0, targetPath);
-
-		const resizedImagePath = resizedImage.uri;
-		reg.logger().info('Resized image ', resizedImagePath);
-		reg.logger().info(`Moving ${resizedImagePath} => ${targetPath}`);
-
-		await RNFS.copyFile(resizedImagePath, targetPath);
-
-		try {
-			await RNFS.unlink(resizedImagePath);
-		} catch (error) {
-			reg.logger().warn('Error when unlinking cached file: ', error);
-		}
-	}
-
 	async attachFile(pickerResponse, fileType) {
 		if (!pickerResponse) {
 			reg.logger().warn('Got no response from picker');
@@ -479,13 +450,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 		let targetPath = Resource.fullPath(resource);
 
 		try {
-			if (mimeType == 'image/jpeg' || mimeType == 'image/jpg' || mimeType == 'image/png') {
-				await this.resizeImage(localFilePath, targetPath, pickerResponse.mime);
-			} else {
-				if (fileType === 'image') {
-					dialogs.error(this, _('Unsupported image type: %s', mimeType));
-					return;
-				} else {
+
 					await shim.fsDriver().copy(localFilePath, targetPath);
 
 					const stat = await shim.fsDriver().stat(targetPath);
@@ -493,8 +458,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 						await shim.fsDriver().remove(targetPath);
 						throw new Error('Resources larger than 10 MB are not currently supported as they may crash the mobile applications. The issue is being investigated and will be fixed at a later time.');
 					}
-				}
-			}
+
 		} catch (error) {
 			reg.logger().warn('Could not attach file:', error);
 			await dialogs.error(this, error.message);
