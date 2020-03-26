@@ -1,5 +1,5 @@
 const React = require('react');
-const { Platform, Clipboard, Keyboard, View, TextInput, StyleSheet, Linking, Image, Share } = require('react-native');
+const { Platform, Clipboard, Keyboard, View, TextInput, StyleSheet, Linking, Image, Share, ScrollView } = require('react-native');
 const { connect } = require('react-redux');
 const { uuid } = require('lib/uuid.js');
 const RNFS = require('react-native-fs');
@@ -82,7 +82,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 
 		const saveDialog = async () => {
 			if (this.isModified()) {
-				let buttonId = await dialogs.pop(this, _('This note has been modified:'), [{ text: _('Save changes'), id: 'save' }, { text: _('Discard changes'), id: 'discard' }, { text: _('Cancel'), id: 'cancel' }]);
+				const buttonId = await dialogs.pop(this, _('This note has been modified:'), [{ text: _('Save changes'), id: 'save' }, { text: _('Discard changes'), id: 'discard' }, { text: _('Cancel'), id: 'cancel' }]);
 
 				if (buttonId == 'cancel') return true;
 				if (buttonId == 'save') await this.saveNoteButton_press();
@@ -205,7 +205,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 		if (this.styles_[cacheKey]) return this.styles_[cacheKey];
 		this.styles_ = {};
 
-		let styles = {
+		const styles = {
 			bodyTextInput: {
 				flex: 1,
 				paddingLeft: theme.marginLeft,
@@ -344,13 +344,13 @@ class NoteScreenComponent extends BaseScreenComponent {
 	}
 
 	async deleteNote_onPress() {
-		let note = this.state.note;
+		const note = this.state.note;
 		if (!note.id) return;
 
-		let ok = await dialogs.confirm(this, _('Delete note?'));
+		const ok = await dialogs.confirm(this, _('Delete note?'));
 		if (!ok) return;
 
-		let folderId = note.parent_id;
+		const folderId = note.parent_id;
 
 		await Note.delete(note.id);
 
@@ -447,7 +447,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 
 		if (!resource.mime) resource.mime = 'application/octet-stream';
 
-		let targetPath = Resource.fullPath(resource);
+		const targetPath = Resource.fullPath(resource);
 
 		try {
 
@@ -544,7 +544,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 	}
 
 	async onAlarmDialogAccept(date) {
-		let newNote = Object.assign({}, this.state.note);
+		const newNote = Object.assign({}, this.state.note);
 		newNote.todo_due = date ? date.getTime() : 0;
 
 		await this.saveOneProperty('todo_due', date ? date.getTime() : 0);
@@ -559,7 +559,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 	async showOnMap_onPress() {
 		if (!this.state.note.id) return;
 
-		let note = await Note.load(this.state.note.id);
+		const note = await Note.load(this.state.note.id);
 		try {
 			const url = Note.geolocationUrl(note);
 			Linking.openURL(url);
@@ -572,7 +572,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 	async showSource_onPress() {
 		if (!this.state.note.id) return;
 
-		let note = await Note.load(this.state.note.id);
+		const note = await Note.load(this.state.note.id);
 		try {
 			Linking.openURL(note.source_url);
 		} catch (error) {
@@ -604,13 +604,14 @@ class NoteScreenComponent extends BaseScreenComponent {
 				this.showOnMap_onPress();
 			},
 		});
-		if (note.source_url)
+		if (note.source_url) {
 			output.push({
 				title: _('Go to source URL'),
 				onPress: () => {
 					this.showSource_onPress();
 				},
 			});
+		}
 
 		return output;
 	}
@@ -625,7 +626,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 
 		if (this.menuOptionsCache_[cacheKey]) return this.menuOptionsCache_[cacheKey];
 
-		let output = [];
+		const output = [];
 
 		// The file attachement modules only work in Android >= 5 (Version 21)
 		// https://github.com/react-community/react-native-image-picker/issues/606
@@ -659,26 +660,28 @@ class NoteScreenComponent extends BaseScreenComponent {
 				this.share_onPress();
 			},
 		});
-		if (isSaved)
+		if (isSaved) {
 			output.push({
 				title: _('Tags'),
 				onPress: () => {
 					this.tags_onPress();
 				},
 			});
+		}
 		output.push({
 			title: isTodo ? _('Convert to note') : _('Convert to todo'),
 			onPress: () => {
 				this.toggleIsTodo_onPress();
 			},
 		});
-		if (isSaved)
+		if (isSaved) {
 			output.push({
 				title: _('Copy Markdown link'),
 				onPress: () => {
 					this.copyMarkdownLink_onPress();
 				},
 			});
+		}
 		output.push({
 			title: _('Properties'),
 			onPress: () => {
@@ -705,7 +708,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 	titleTextInput_contentSizeChange(event) {
 		if (!this.enableMultilineTitle_) return;
 
-		let height = event.nativeEvent.contentSize.height;
+		const height = event.nativeEvent.contentSize.height;
 		this.setState({ titleTextInputHeight: height });
 	}
 
@@ -826,11 +829,15 @@ class NoteScreenComponent extends BaseScreenComponent {
 
 			// Note: blurOnSubmit is necessary to get multiline to work.
 			// See https://github.com/facebook/react-native/issues/12717#issuecomment-327001997
-			bodyComponent = <TextInput autoCapitalize="sentences" style={this.styles().bodyTextInput} ref="noteBodyTextField" multiline={true} value={note.body} onChangeText={text => this.body_changeText(text)} blurOnSubmit={false} selectionColor={theme.textSelectionColor} placeholder={_('Add body')} placeholderTextColor={theme.colorFaded} />;
+			bodyComponent = (
+				<ScrollView persistentScrollbar>
+					<TextInput autoCapitalize="sentences" style={this.styles().bodyTextInput} ref="noteBodyTextField" multiline={true} value={note.body} onChangeText={text => this.body_changeText(text)} blurOnSubmit={false} selectionColor={theme.textSelectionColor} placeholder={_('Add body')} placeholderTextColor={theme.colorFaded} />
+				</ScrollView>
+			);
 		}
 
 		const renderActionButton = () => {
-			let buttons = [];
+			const buttons = [];
 
 			buttons.push({
 				title: _('Edit'),
@@ -849,8 +856,8 @@ class NoteScreenComponent extends BaseScreenComponent {
 
 		const actionButtonComp = renderActionButton();
 
-		let showSaveButton = this.state.mode == 'edit' || this.isModified() || this.saveButtonHasBeenShown_;
-		let saveButtonDisabled = !this.isModified();
+		const showSaveButton = this.state.mode == 'edit' || this.isModified() || this.saveButtonHasBeenShown_;
+		const saveButtonDisabled = !this.isModified();
 
 		if (showSaveButton) this.saveButtonHasBeenShown_ = true;
 
