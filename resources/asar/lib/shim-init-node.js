@@ -64,7 +64,20 @@ function shimInit() {
 		}
 	};
 
-	shim.createResourceFromPath = async function(filePath, defaultProps = null) {
+	shim.showMessageBox = (message, options = null) => {
+		if (shim.isElectron()) {
+			const { bridge } = require('electron').remote.require('./bridge');
+			return bridge().showMessageBox(message, options);
+		} else {
+			throw new Error('Not implemented');
+		}
+	};
+
+	shim.createResourceFromPath = async function(filePath, defaultProps = null, options = null) {
+		options = Object.assign({
+			resizeLargeImages: 'always', // 'always' or 'ask'
+		}, options);
+
 		const readChunk = require('read-chunk');
 		const imageType = require('image-type');
 
@@ -119,14 +132,19 @@ function shimInit() {
 		return Resource.save(resource, { isNew: true });
 	};
 
-	shim.attachFileToNote = async function(note, filePath, position = null, createFileURL = false) {
+	shim.attachFileToNote = async function(note, filePath, position = null, options = null) {
+		options = Object.assign({}, {
+			createFileURL: false,
+		}, options);
+
 		const { basename } = require('path');
 		const { escapeLinkText } = require('lib/markdownUtils');
 		const { toFileProtocolPath } = require('lib/path-utils');
 
-		let resource = [];
-		if (!createFileURL) {
-			resource = await shim.createResourceFromPath(filePath);
+		let resource = null;
+		if (!options.createFileURL) {
+			resource = await shim.createResourceFromPath(filePath, null, options);
+			if (!resource) return null;
 		}
 
 		const newBody = [];
@@ -137,7 +155,7 @@ function shimInit() {
 
 		if (note.body && position) newBody.push(note.body.substr(0, position));
 
-		if (!createFileURL) {
+		if (!options.createFileURL) {
 			newBody.push(Resource.markdownTag(resource));
 		} else {
 			const filename = escapeLinkText(basename(filePath)); // to get same filename as standard drag and drop
